@@ -1,0 +1,196 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Model API Interface</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: #121212;
+            color: #ccc;
+            padding: 20px;
+        }
+        .container {
+            max-width: 600px;
+            margin: auto;
+            background-color: #1e1e1e;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+        }
+        input, textarea, button {
+            width: calc(100% - 22px);
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 5px;
+            border: 1px solid #333;
+            background-color: #333;
+            color: #fff;
+            font-size: 16px;
+        }
+        button {
+            background-color: #6c757d; /* Neutral gray */
+            transition: background-color 0.5s;
+        }
+        #questionButton, #factButton { /* Individual button colors */
+            background-color: #007bff; /* Blue */
+        }
+        button:hover {
+            opacity: 0.8;
+        }
+        .response, .size-display {
+            background-color: #252526;
+            padding: 10px;
+            border-radius: 5px;
+            margin-top: 10px;
+            color: #ddd;
+            font-size: 16px;
+        }
+        .loading-spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 20px;
+            height: 20px;
+            animation: spin 2s linear infinite;
+            display: block;
+            margin: 10px auto;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .size-display {
+            position: fixed;
+            right: 20px;
+            top: 20px;
+            font-size: 25px; /* Increased font size */
+            font-weight: bold; /* Make it bold */
+            transition: transform 0.5s ease;
+        }
+        .size-changed {
+            transform: scale(1.5); /* Blow up size */
+        }
+    </style>
+</head>
+<body>
+    <div class="size-display" id="vectorSizeDisplay">Vector Store Size: <span id="vectorSize">0</span></div>
+    <div class="container">
+        <h1>AI Model Interaction Panel</h1>
+
+        <h2>Ask a Question</h2>
+        <input type="text" id="questionInput" placeholder="Enter your question" onkeypress="enterSubmit(event, 'questionButton')">
+        <button id="questionButton" onclick="submitQuestion()">Submit Question</button>
+        <div id="questionResponse" class="response"></div>
+
+        <h2>Add a Fact</h2>
+        <textarea id="factInput" placeholder="Enter a fact to add" onkeypress="enterSubmit(event, 'factButton')"></textarea>
+        <button id="factButton" onclick="addFact()">Add Fact</button>
+        <div id="factResponse" class="response"></div>
+
+        <h2>Reset Vector Store</h2>
+        <button id="resetButton" onclick="resetVectors()">Reset Vectors</button>
+        <div id="resetResponse" class="response"></div>
+    </div>
+
+    <script>
+        function enterSubmit(event, buttonId) {
+            if (event.keyCode === 13) {
+                event.preventDefault(); // Prevent form submission
+                document.getElementById(buttonId).click();
+            }
+        }
+
+        async function postData(url = '', data = {}, shouldUpdateSize = true) {
+            const response = await fetch(url, {
+                method: 'POST',
+                mode: 'cors',
+                cache: 'no-cache',
+                credentials: 'same-origin',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                redirect: 'follow',
+                referrerPolicy: 'no-referrer',
+                body: JSON.stringify(data)
+            });
+            if (shouldUpdateSize) {
+                updateSize();
+            }
+            return response;
+        }
+
+        async function getData(url = '') {
+            const response = await fetch(url);
+            return response.json();
+        }
+
+        function submitQuestion() {
+            const questionInput = document.getElementById('questionInput');
+            const questionResponse = document.getElementById('questionResponse');
+            questionResponse.innerHTML = '<div class="loading-spinner"></div>';
+            postData('/ask_question', { question: questionInput.value }, false)
+                .then(response => response.json())
+                .then(data => {
+                    if (data.RAG === 'True') questionResponse.textContent = "RAG: " + data.answer;
+                    else questionResponse.textContent = "No RAG: " + data.answer;
+                });
+        }
+
+        function addFact() {
+            const factInput = document.getElementById('factInput');
+            const factButton = document.getElementById('factButton');
+            const factResponse = document.getElementById('factResponse');
+            factResponse.innerHTML = '<div class="loading-spinner"></div>';
+            postData('/add_fact', { fact: factInput.value })
+                .then(response => {
+                    if (response.ok) {
+                        response.json().then(data => {
+                            factResponse.textContent = JSON.stringify(data.message);
+                            factButton.style.backgroundColor = "#28a745"; // Flash green
+                            setTimeout(() => { factButton.style.backgroundColor = "#007bff"; }, 4000); // Reset after 4 seconds
+                        });
+                    } else {
+                        factResponse.textContent = "Error: Unable to add fact.";
+                        factButton.style.backgroundColor = "#dc3545"; // Flash red
+                        setTimeout(() => { factButton.style.backgroundColor = "#007bff"; }, 4000); // Reset after 4 seconds
+                    }
+                });
+        }
+
+        function resetVectors() {
+            const resetButton = document.getElementById('resetButton');
+            const resetResponse = document.getElementById('resetResponse');
+            resetResponse.innerHTML = '<div class="loading-spinner"></div>';
+            postData('/reset_vectors', { reset: true })
+                .then(response => {
+                    if (response.ok) {
+                        resetResponse.textContent = "";
+                        resetButton.style.backgroundColor = "#28a745"; // Flash green
+                        setTimeout(() => { resetButton.style.backgroundColor = "#6c757d"; }, 4000); // Reset after 4 seconds
+                    } else {
+                        resetResponse.textContent = "";
+                        resetButton.style.backgroundColor = "#dc3545"; // Flash red
+                        setTimeout(() => { resetButton.style.backgroundColor = "#6c757d"; }, 4000); // Reset after 4 seconds
+                    }
+                });
+        }
+
+        function updateSize() {
+            const vectorSizeDisplay = document.getElementById('vectorSizeDisplay');
+            getData('/size')
+                .then(data => {
+                    document.getElementById('vectorSize').textContent = data.size;
+                    vectorSizeDisplay.classList.add('size-changed');
+                    setTimeout(() => {
+                        vectorSizeDisplay.classList.remove('size-changed');
+                    }, 500); // Animation reset
+                });
+        }
+
+        // Call getSize on page load
+        window.onload = updateSize;
+    </script>
+</body>
+</html>
