@@ -198,7 +198,7 @@
 				postData('/ask_question', { question: questionInput.value }, false)
 					.then((response) => response.json())
 					.then((data) => {
-						questionResponse.textContent = `${data.RAG ? 'No' : ''} RAG: ${
+						questionResponse.textContent = `${data.RAG === "True" ? '' : 'No'} RAG: ${
 							data.answer
 						}`;
 						questionResponse.classList.add('success');
